@@ -160,7 +160,7 @@
  |_| |_|\\___/|___/\\__,_|_| |_|\\__,_|")
 
 ;;(nos/print-head "v0.3.19" "4HoZogbrDGwK6UsD1eMgkFKTNDyaqcfb2eodLLtS8NTx" "0.084275" "13,260.00")
-(defn print-head [version address network market balance stake nft owned]
+(defn print-head [version address network market balance stake nft owned allowed-ops]
   (logg/infof "
 %s
 
@@ -174,6 +174,7 @@ Running Nosana Node %s
   Slashed    \u001B[34m0.00\u001B[0m NOS
   NFT        \u001B[34m%s\u001B[0m
   Owned      \u001B[34m%s\u001B[0m NFT
+  OPS        \u001B[34m%s\u001B[0m
 "
               ascii-logo
               version
@@ -183,7 +184,8 @@ Running Nosana Node %s
               balance
               stake
               nft
-              owned))
+              owned
+              allowed-ops))
 
 (defn make-config
   "Build the node's config to interact with the Nosana Network."
@@ -239,8 +241,9 @@ Running Nosana Node %s
     {:network           network
      :signer            signer
      :secrets-endpoint  "https://secrets.k8s.dev.nos.ci"
+     :allowed-ops       [:container/run :container/create-volume]
      :pinata-jwt        (:pinata-jwt vault)
-     :ipfs-url          (:ipfs-url vault)
+     :ipfs-url          (:ipfs-url vault) 
      :market            market-pub
      :nos-default-args  {:container/run
                          {:conn         {:uri [:nos/vault :podman-conn-uri]}
@@ -633,7 +636,8 @@ market. Returns a tuple of [run-address run-data]."
      (-> health :sol)
      (-> health :nos)
      (:nft conf)
-     (-> health :nft))
+     (-> health :nft)
+     (:allowed-ops conf))
 
     (case status
       :success (println "Node healthy. LFG.")
