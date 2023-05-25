@@ -521,6 +521,14 @@ Running Nosana Node %s
                            (+ (:time run) (:job-timeout conf))))
           flow-id  (:id flow)]
       (when-not flow-is-valid?
+        (go
+          (log :info "Finishing job because of unsupported OP" (.toString run-addr))
+          (let [sig (finish-job conf
+                                (PublicKey. job-addr)
+                                (PublicKey. run-addr)
+                                (:market job)
+                                "")]
+            (<! (sol/await-tx< sig (:network conf)))))
         (throw (ex-info "Parse error: found unsupported OP." {:flow flow})))
       (when expired?
         (throw (ex-info "Run has expired" {:run-time    (:time run)
