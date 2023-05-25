@@ -495,6 +495,13 @@ Running Nosana Node %s
   Dispatches on the [:state :nosana/job-type] value."
   #'create-flow-dispatch)
 
+(defn validate-flow-ops
+  "Check if the flow operations are whitelisted by the configuration."
+  [flow conf]
+  (let [allowed-ops (set (:allowed-ops conf))
+        ops         (map #(:op %) (:ops flow))]
+    (every? #(contains? allowed-ops %) ops)))
+
 (defn start-flow-for-run!
   "Start running a new Nostromo flow and return its flow ID."
   [[run-addr run] conf {:nos/keys [store flow-chan]}]
@@ -505,10 +512,13 @@ Running Nosana Node %s
           flow     (cond-> (create-flow job-info run-addr run conf)
                      (int? (:job-timeout conf))
                      (assoc :expires (+ (:time run) (:job-timeout conf))))
+          flow-is-valid? (validate-flow-ops flow conf)
           expired? (and (int? (:job-timeout conf))
                         (> (flow/current-time)
                            (+ (:time run) (:job-timeout conf))))
           flow-id  (:id flow)]
+      (when-not flow-is-valid?
+        (throw (ex-info "Parse error: found unsupported OP." {:flow flow})))
       (when expired?
         (throw (ex-info "Run has expired" {:run-time    (:time run)
                                            :job-timeout (:job-timeout conf)})))
