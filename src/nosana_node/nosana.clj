@@ -505,6 +505,15 @@ Running Nosana Node %s
         ops         (map #(:op %) (:ops flow))]
     (every? #(contains? allowed-ops %) ops)))
 
+(defn validate-flow-ops-map
+  "Check if the flow operation are whitelisted by the configuration and return a tuple with boolean and cause."
+  [flow conf]
+  (let [allowed-ops (set (:allowed-ops conf))
+        ops         (map #(:op %) (:ops flow))]
+    (if (every? #(contains? allowed-ops %) ops)
+      [true nil]
+      [false (str "Operation not allowed: " (first (filter #(not (contains? allowed-ops %)) ops)))])))
+
 (defn start-flow-for-run!
   "Start running a new Nostromo flow and return its flow ID."
   [[run-addr run] conf {:nos/keys [store flow-chan]}]
@@ -515,12 +524,13 @@ Running Nosana Node %s
           flow     (cond-> (create-flow job-info run-addr run conf)
                      (int? (:job-timeout conf))
                      (assoc :expires (+ (:time run) (:job-timeout conf))))
-          flow-is-valid? (validate-flow-ops flow conf)
+          [_flow-valid? error-msg] (validate-flow-ops-map flow conf)
           expired? (and (int? (:job-timeout conf))
                         (> (flow/current-time)
                            (+ (:time run) (:job-timeout conf))))
           flow-id  (:id flow)]
-      (when-not flow-is-valid?
+      (cond 
+        error-msg  
         (go
           (log :info "Finishing job because of unsupported OP" (.toString run-addr))
           (let [sig (finish-job conf
@@ -528,20 +538,23 @@ Running Nosana Node %s
                                 (PublicKey. run-addr)
                                 (:market job)
                                 "")]
-            (<! (sol/await-tx< sig (:network conf)))))
-        (throw (ex-info "Parse error: found unsupported OP." {:flow flow})))
-      (when expired?
+            (<! (sol/await-tx< sig (:network conf)))) 
+          nil)
+        
+        expired?
         (throw (ex-info "Run has expired" {:run-time    (:time run)
-                                           :job-timeout (:job-timeout conf)})))
+                                           :job-timeout (:job-timeout conf)}))
+        
+        :else 
+        (do
+          (log :info "Starting job" job-addr)
+          (log :trace "Processing flow" flow-id)
 
-      (log :info "Starting job" job-addr)
-      (log :trace "Processing flow" flow-id)
-
-      (<!! (kv/assoc store [:job->flow job-addr] flow-id))
-      (go
-        (<! (flow/save-flow flow store))
-        (>! flow-chan [:trigger flow-id])
-        flow-id))
+          (<!! (kv/assoc store [:job->flow job-addr] flow-id))
+          (go
+            (<! (flow/save-flow flow store))
+            (>! flow-chan [:trigger flow-id])
+            flow-id))))
     (catch Exception e
       (log :error "Error starting flow" e)
       (go
