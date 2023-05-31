@@ -245,7 +245,7 @@ Running Nosana Node %s
      :secrets-endpoint  "https://secrets.k8s.dev.nos.ci"
      :allowed-ops       [:container/run :container/create-volume]
      :pinata-jwt        (:pinata-jwt vault)
-     :ipfs-url          (:ipfs-url vault) 
+     :ipfs-url          (:ipfs-url vault)
      :market            market-pub
      :nos-default-args  {:container/run
                          {:conn         {:uri [:nos/vault :podman-conn-uri]}
@@ -520,37 +520,40 @@ Running Nosana Node %s
           flow     (cond-> (create-flow job-info run-addr run conf)
                      (int? (:job-timeout conf))
                      (assoc :expires (+ (:time run) (:job-timeout conf))))
-          [_flow-valid? error-msg] (validate-flow-ops-map flow conf)
+
+          [_flow-valid? error-msg] (validate-flow-ops flow conf)
           expired? (and (int? (:job-timeout conf))
                         (> (flow/current-time)
                            (+ (:time run) (:job-timeout conf))))
           flow-id  (:id flow)]
-      (cond 
-        error-msg  
-        (go
-          (log :info "Finishing job because of unsupported OP" (.toString run-addr))
-          (let [sig (finish-job conf
-                                (PublicKey. job-addr)
-                                (PublicKey. run-addr)
-                                (:market job)
-                                "")]
-            (<! (sol/await-tx< sig (:network conf)))) 
-          nil)
-        
-        expired?
-        (throw (ex-info "Run has expired" {:run-time    (:time run)
-                                           :job-timeout (:job-timeout conf)}))
-        
-        :else 
-        (do
-          (log :info "Starting job" job-addr)
-          (log :trace "Processing flow" flow-id)
-
-          (<!! (kv/assoc store [:job->flow job-addr] flow-id))
+      (cond
+          error-msg
           (go
-            (<! (flow/save-flow flow store))
-            (>! flow-chan [:trigger flow-id])
-            flow-id))))
+            (log :info "Finishing job because of unsupported OP")
+            (let [results-ipfs (finish-flow (assoc-in flow [:state :nosana/error] error-msg) conf)
+                  sig (finish-job conf
+                                  (PublicKey. job-addr)
+                                  (PublicKey. run-addr)
+                                  (:market job)
+                                  results-ipfs)
+                  tx (<! (sol/await-tx< sig (:network conf)))]
+              (log :trace "Submitted finish job tx " sig))
+            nil)
+
+          expired?
+          (throw (ex-info "Run has expired" {:run-time    (:time run)
+                                             :job-timeout (:job-timeout conf)}))
+
+          :else
+          (do
+            (log :info "Starting job" job-addr)
+            (log :trace "Processing flow" flow-id)
+
+            (<!! (kv/assoc store [:job->flow job-addr] flow-id))
+            (go
+              (<! (flow/save-flow flow store))
+              (>! flow-chan [:trigger flow-id])
+              flow-id))))
     (catch Exception e
       (log :error "Error starting flow" e)
       (go
