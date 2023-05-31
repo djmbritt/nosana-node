@@ -501,20 +501,14 @@ Running Nosana Node %s
   #'create-flow-dispatch)
 
 (defn validate-flow-ops
-  "Check if the flow operations are whitelisted by the configuration."
-  [flow conf]
-  (let [allowed-ops (set (:allowed-ops conf))
-        ops         (map #(:op %) (:ops flow))]
-    (every? #(contains? allowed-ops %) ops)))
-
-(defn validate-flow-ops-map
   "Check if the flow operation are whitelisted by the configuration and return a tuple with boolean and cause."
   [flow conf]
   (let [allowed-ops (set (:allowed-ops conf))
-        ops         (map #(:op %) (:ops flow))]
-    (if (every? #(contains? allowed-ops %) ops)
+        ops         (map #(:op %) (:ops flow))
+        invalid-ops (filter #(not (contains? allowed-ops (keyword %))) ops)]
+    (if (empty? invalid-ops)
       [true nil]
-      [false (str "Operation not allowed: " (first (filter #(not (contains? allowed-ops %)) ops)))])))
+      [false (str "Operation not allowed: " (string/join ", " invalid-ops))])))
 
 (defn start-flow-for-run!
   "Start running a new Nostromo flow and return its flow ID."
