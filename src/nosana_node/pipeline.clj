@@ -21,6 +21,11 @@
    :commit   "ce02322afff927af93ba298a9300800e64ae2d9d"
    :pipeline "nosana:\n  description: Run Test \n\nglobal:\n  image: registry.hub.docker.com/library/node:16\n  trigger:\n    branch:\n      - all\n\njobs:\n  - name: install-deps and run test\n    commands: \n      - npm ci\n      - npm run test\n"})
 
+(defn example-job-fn [flow]
+  {:type     "github-flow"
+   :url      "https://github.com/unraveled/dummy"
+   :commit   "ce02322afff927af93ba298a9300800e64ae2d9d"
+   :pipeline (json/encode flow)})
 (def base-flow
   "The default flow for a pipeline which includes cloning of the
   repository."
