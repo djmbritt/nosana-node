@@ -26,6 +26,7 @@
    :url      "https://github.com/unraveled/dummy"
    :commit   "ce02322afff927af93ba298a9300800e64ae2d9d"
    :pipeline (json/encode flow)})
+
 (def base-flow
   "The default flow for a pipeline which includes cloning of the
   repository."
