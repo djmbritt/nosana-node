@@ -529,7 +529,7 @@ Running Nosana Node %s
       (cond
           error-msg
           (go
-            (log :info "Finishing job because of unsupported OP")
+            (log :info "Finishing job because of unsupported OP. Waiting for finish transaction.")
             (let [results-ipfs (finish-flow (assoc-in flow [:state :nosana/error] error-msg) conf)
                   sig (finish-job conf
                                   (PublicKey. job-addr)
@@ -537,7 +537,7 @@ Running Nosana Node %s
                                   (:market job)
                                   results-ipfs)
                   tx (<! (sol/await-tx< sig (:network conf)))]
-              (log :trace "Submitted finish job tx " sig))
+              (log :trace "Submitted finish job tx " sig tx))
             nil)
 
           expired?
