@@ -248,7 +248,7 @@ Running Nosana Node %s
      :ipfs-url          (:ipfs-url vault)
      :market            market-pub
      :nos-default-args  {:container/run
-                         {:conn         {:uri [:nos/vault :podman-conn-uri]}
+                         {:conn         {:uri (:podman-conn-uri vault)}
                           :inline-logs? true}}
      :open-market?      open-market?
      :market-collection (:nodeAccessKey market)
