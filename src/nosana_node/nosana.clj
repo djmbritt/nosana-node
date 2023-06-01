@@ -24,7 +24,7 @@
            [org.p2p.solanaj.rpc RpcClient Cluster]
            [org.bitcoinj.core Utils Base58]))
 
-;; (remove-method flow/ref-val :nos/vault)
+(remove-method flow/ref-val :nos/vault)
 
 ;; (def ipfs-base-url "https://cloudflare-ipfs.com/ipfs/")
 (def pinata-api-url "https://api.pinata.cloud")
